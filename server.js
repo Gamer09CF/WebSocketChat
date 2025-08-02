@@ -1,262 +1,234 @@
-// Import the necessary modules
-const http = require('http');
-const WebSocket = require('ws');
-const { v4: uuidv4 } = require('uuid');
 const express = require('express');
+const http = require('http');
 const path = require('path');
+const WebSocket = require('ws');
+const bcrypt = require('bcrypt');
 
-// --- In-Memory Data Stores ---
-// Note: In a real application, this data would be stored in a persistent database.
-// For this example, it will be reset every time the server restarts.
-let connectedUsers = [];
-let bannedUsers = [];
-let messages = [];
-let featureRequests = [];
-
-// --- Server Configuration ---
-const PORT = 8080;
-const ADMIN_PASSWORD = 'toor'; // Changed for consistency with the client.
-
-// --- Helper Functions ---
-/**
- * Broadcasts a message to all connected clients, optionally filtering by a specific user.
- * @param {object} data - The message data to send.
- * @param {object} [senderWs=null] - The WebSocket of the sender, if a broadcast to all but the sender is needed.
- * @param {boolean} [toAdminsOnly=false] - If true, only broadcasts to admin clients.
- */
-function broadcast(data, senderWs = null, toAdminsOnly = false) {
-    const message = JSON.stringify(data);
-    wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-            if (toAdminsOnly) {
-                if (client.user && client.user.isAdmin) {
-                    client.send(message);
-                }
-            } else if (client !== senderWs) {
-                client.send(message);
-            }
-        }
-    });
-}
-
-/**
- * Sends a message to a single connected client.
- * @param {object} clientWs - The WebSocket of the client.
- * @param {object} data - The message data to send.
- */
-function sendToClient(clientWs, data) {
-    if (clientWs && clientWs.readyState === WebSocket.OPEN) {
-        clientWs.send(JSON.stringify(data));
-    }
-}
-
-/**
- * Gets a user from a list by their ID.
- * @param {Array<Object>} userList - The list of users to search.
- * @param {string} userId - The ID of the user.
- * @returns {Object|null} The user object or null if not found.
- */
-function findUserById(userList, userId) {
-    return userList.find(u => u.id === userId);
-}
-
-/**
- * Removes a user from a list by their ID.
- * @param {Array<Object>} userList - The list of users to modify.
- * @param {string} userId - The ID of the user to remove.
- */
-function removeUserById(userList, userId) {
-    return userList.filter(u => u.id !== userId);
-}
-
-// --- WebSocket Server Setup ---
-// Initialize the Express app
 const app = express();
-// Create an HTTP server using the Express app
 const server = http.createServer(app);
-// Attach the WebSocket server to the HTTP server
 const wss = new WebSocket.Server({ server });
 
-// Serve the index.html file for all GET requests to the root URL
+const adminPassword = 'admin'; // Plaintext password
+const connectedUsers = new Map();
+const bannedUsers = new Map(); // Store banned user IDs and names
+let messages = [];
+let adminMessages = [];
+let featureRequests = [];
+
+// Serve the index.html file
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Hash the admin password for secure comparison
+async function hashPassword(password) {
+    const saltRounds = 10;
+    return bcrypt.hash(password, saltRounds);
+}
+
+let hashedAdminPassword;
+hashPassword(adminPassword).then(hash => {
+    hashedAdminPassword = hash;
+    console.log('Admin password hashed and ready.');
+});
+
+// Function to broadcast data to all connected clients
+function broadcast(data) {
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify(data));
+        }
+    });
+}
+
+// Update the user lists on the client side
+function updateUserLists() {
+    const usersArray = Array.from(connectedUsers.values()).map(user => ({ id: user.id, name: user.name }));
+    const bannedUsersArray = Array.from(bannedUsers.values()).map(user => ({ id: user.id, name: user.name }));
+    
+    // Send user list to all clients
+    broadcast({
+        type: 'updateUserLists',
+        connectedUsers: usersArray,
+        bannedUsers: bannedUsersArray
+    });
+
+    // Send feature requests to only admin clients
+    wss.clients.forEach(client => {
+        const user = client.user;
+        if (user && user.isAdmin) {
+            client.send(JSON.stringify({
+                type: 'updateFeatureRequests',
+                requests: featureRequests
+            }));
+        }
+    });
+}
+
+// Handle WebSocket connections
 wss.on('connection', ws => {
-    // A flag to check if the user is authenticated and has a username
-    ws.isLoggedIn = false;
+    console.log('Client connected.');
+    ws.user = null; // Store user data directly on the WebSocket connection
 
-    ws.on('message', message => {
-        const data = JSON.parse(message);
+    ws.on('message', async message => {
+        const data = JSON.parse(message);
+        console.log('Received:', data);
 
-        // A user must first join before sending other messages
-        if (!ws.isLoggedIn && data.type !== 'join') {
-            sendToClient(ws, { type: 'alert', message: 'You must join the chat first.' });
-            return;
-        }
+        switch (data.type) {
+            case 'join':
+                // Check if the user is already connected
+                if (Array.from(connectedUsers.values()).some(u => u.name === data.userName)) {
+                    ws.send(JSON.stringify({
+                        type: 'connectionDenied',
+                        reason: `The username '${data.userName}' is already taken. Please choose another.`
+                    }));
+                    return;
+                }
 
-        switch (data.type) {
-            case 'join':
-                const userId = uuidv4();
-                const { userName, password } = data;
+                // Check for banned users
+                if (Array.from(bannedUsers.values()).some(u => u.name === data.userName)) {
+                    ws.send(JSON.stringify({
+                        type: 'banned',
+                        message: `You have been banned from this chat.`
+                    }));
+                    return;
+                }
 
-                // Check for banned users
-                const isUserBanned = bannedUsers.some(bannedUser => bannedUser.name === userName);
-                if (isUserBanned) {
-                    sendToClient(ws, { type: 'banned', message: 'You are banned from this chat.' });
-                    ws.close();
-                    return;
-                }
+                // Handle Admin login
+                const isPasswordCorrect = await bcrypt.compare(data.password, hashedAdminPassword);
+                if (data.userName === 'Admin' && isPasswordCorrect) {
+                    ws.user = { id: Math.random().toString(36).substring(2, 9), name: data.userName, isAdmin: true };
+                    connectedUsers.set(ws.user.id, ws.user);
+                    ws.send(JSON.stringify({ type: 'joinSuccess', user: ws.user }));
+                    ws.send(JSON.stringify({ type: 'chatHistory', messages }));
+                    ws.send(JSON.stringify({ type: 'adminChatHistory', messages: adminMessages }));
+                    updateUserLists();
+                    broadcast({ type: 'newMessage', message: { userName: 'Server', text: `${ws.user.name} has joined the chat.` } });
+                } else if (data.userName !== 'Admin') {
+                    ws.user = { id: Math.random().toString(36).substring(2, 9), name: data.userName, isAdmin: false };
+                    connectedUsers.set(ws.user.id, ws.user);
+                    ws.send(JSON.stringify({ type: 'joinSuccess', user: ws.user }));
+                    ws.send(JSON.stringify({ type: 'chatHistory', messages }));
+                    updateUserLists();
+                    broadcast({ type: 'newMessage', message: { userName: 'Server', text: `${ws.user.name} has joined the chat.` } });
+                } else {
+                    ws.send(JSON.stringify({ type: 'connectionDenied', reason: 'Incorrect admin password.' }));
+                }
+                break;
 
-                // Handle admin login
-                if (userName === 'ADMIN' && password === ADMIN_PASSWORD) {
-                    ws.user = { id: userId, name: 'ADMIN', isAdmin: true };
-                } else if (userName === 'ADMIN' && password !== ADMIN_PASSWORD) {
-                    // This line sends the "Incorrect admin password" alert to the client.
-                    sendToClient(ws, { type: 'alert', message: 'Incorrect admin password.' });
-                    ws.close();
-                    return;
-                } else {
-                    ws.user = { id: userId, name: userName, isAdmin: false };
-                }
+            case 'chatMessage':
+                if (ws.user) {
+                    const message = { userName: ws.user.name, text: data.text, timestamp: new Date() };
+                    messages.push(message);
+                    broadcast({ type: 'newMessage', message });
+                }
+                break;
 
-                ws.isLoggedIn = true;
-                connectedUsers.push(ws.user);
+            case 'adminMessage':
+                if (ws.user && ws.user.isAdmin) {
+                    const message = { userName: ws.user.name, text: data.text, timestamp: new Date() };
+                    adminMessages.push(message);
+                    // Only broadcast to admin clients
+                    wss.clients.forEach(client => {
+                        if (client.readyState === WebSocket.OPEN && client.user && client.user.isAdmin) {
+                            client.send(JSON.stringify({ type: 'newAdminMessage', message }));
+                        }
+                    });
+                }
+                break;
 
-                console.log(`${ws.user.name} has joined the chat.`);
+            case 'banUser':
+                if (ws.user && ws.user.isAdmin) {
+                    const userToBan = connectedUsers.get(data.userId);
+                    if (userToBan) {
+                        const clientToBan = Array.from(wss.clients).find(client => client.user && client.user.id === userToBan.id);
+                        if (clientToBan) {
+                            bannedUsers.set(userToBan.id, userToBan);
+                            connectedUsers.delete(userToBan.id);
+                            clientToBan.send(JSON.stringify({ type: 'banned', message: 'You have been banned by an admin.' }));
+                            clientToBan.close(); // Immediately close the connection
+                            broadcast({ type: 'alert', message: `${userToBan.name} has been banned.` });
+                            updateUserLists();
+                        }
+                    }
+                }
+                break;
 
-                // Send success message and initial data to the new client
-                sendToClient(ws, { type: 'joinSuccess', user: ws.user });
-                sendToClient(ws, { type: 'chatHistory', messages });
-                if (ws.user.isAdmin) {
-                    sendToClient(ws, { type: 'updateFeatureRequests', requests: featureRequests });
-                }
-                
-                // Update all clients with the new user lists
-                broadcast({
-                    type: 'updateUserLists',
-                    connectedUsers: connectedUsers,
-                    bannedUsers: bannedUsers
-                });
-                break;
+            case 'unbanUser':
+                if (ws.user && ws.user.isAdmin) {
+                    const userToUnban = bannedUsers.get(data.userId);
+                    if (userToUnban) {
+                        bannedUsers.delete(userToUnban.id);
+                        broadcast({ type: 'alert', message: `${userToUnban.name} has been unbanned.` });
+                        updateUserLists();
+                    }
+                }
+                break;
+            
+            case 'clearChat':
+                if (ws.user && ws.user.isAdmin) {
+                    console.log('Admin requested to clear chat.');
+                    messages = []; // Clear the messages array
+                    broadcast({ type: 'chatHistory', messages }); // Broadcast the empty history
+                    broadcast({ type: 'alert', message: 'The chat has been cleared by an admin.' });
+                }
+                break;
 
-            case 'chatMessage':
-                const newMessage = {
-                    id: uuidv4(),
-                    userId: ws.user.id,
-                    userName: ws.user.name,
-                    text: data.text,
-                    timestamp: new Date().toISOString()
-                };
-                messages.push(newMessage);
-                console.log(`New message from ${ws.user.name}: ${data.text}`);
-                
-                // Broadcast the new message to all clients. This ensures the message is sent
-                // once, and the sender receives their own message along with everyone else.
-                broadcast({ type: 'newMessage', message: newMessage });
-                break;
-            
-            case 'banUser':
-                if (ws.user.isAdmin) {
-                    const userToBan = findUserById(connectedUsers, data.userId);
-                    if (userToBan) {
-                        bannedUsers.push(userToBan);
-                        connectedUsers = removeUserById(connectedUsers, data.userId);
-                        console.log(`Admin ${ws.user.name} has banned user: ${userToBan.name}`);
+            case 'featureRequest':
+                if (ws.user) {
+                    const request = {
+                        id: Math.random().toString(36).substring(2, 9),
+                        userName: ws.user.name,
+                        text: data.text,
+                        timestamp: new Date()
+                    };
+                    featureRequests.push(request);
+                    // Only broadcast to admin clients
+                    wss.clients.forEach(client => {
+                        if (client.readyState === WebSocket.OPEN && client.user && client.user.isAdmin) {
+                            client.send(JSON.stringify({
+                                type: 'updateFeatureRequests',
+                                requests: featureRequests
+                            }));
+                        }
+                    });
+                }
+                break;
+            
+            case 'deleteFeatureRequest':
+                if (ws.user && ws.user.isAdmin) {
+                    featureRequests = featureRequests.filter(req => req.id !== data.requestId);
+                    // Only broadcast to admin clients
+                    wss.clients.forEach(client => {
+                        if (client.readyState === WebSocket.OPEN && client.user && client.user.isAdmin) {
+                            client.send(JSON.stringify({
+                                type: 'updateFeatureRequests',
+                                requests: featureRequests
+                            }));
+                        }
+                    });
+                }
+                break;
+        }
+    });
 
-                        // Find the WebSocket for the user being banned and send them a 'banned' message
-                        const bannedClientWs = Array.from(wss.clients).find(client => client.user && client.user.id === data.userId);
-                        if (bannedClientWs) {
-                            sendToClient(bannedClientWs, { type: 'banned' });
-                            bannedClientWs.close();
-                        }
-                        
-                        // Update all clients with the new user lists
-                        broadcast({
-                            type: 'updateUserLists',
-                            connectedUsers: connectedUsers,
-                            bannedUsers: bannedUsers
-                        });
-                    }
-                } else {
-                    sendToClient(ws, { type: 'alert', message: 'You are not authorized to perform this action.' });
-                }
-                break;
+    ws.on('close', () => {
+        if (ws.user) {
+            console.log(`Client ${ws.user.name} disconnected.`);
+            connectedUsers.delete(ws.user.id);
+            broadcast({ type: 'newMessage', message: { userName: 'Server', text: `${ws.user.name} has left the chat.` } });
+            updateUserLists();
+        } else {
+            console.log('A client disconnected before logging in.');
+        }
+    });
 
-            case 'unbanUser':
-                if (ws.user.isAdmin) {
-                    const userToUnban = findUserById(bannedUsers, data.userId);
-                    if (userToUnban) {
-                        bannedUsers = removeUserById(bannedUsers, data.userId);
-                        console.log(`Admin ${ws.user.name} has unbanned user: ${userToUnban.name}`);
+    ws.on('error', error => {
+        console.error('WebSocket error:', error);
+    });
+});
 
-                        // Update all clients with the new user lists
-                        broadcast({
-                            type: 'updateUserLists',
-                            connectedUsers: connectedUsers,
-                            bannedUsers: bannedUsers
-                        });
-                    }
-                } else {
-                    sendToClient(ws, { type: 'alert', message: 'You are not authorized to perform this action.' });
-                }
-                break;
-
-            case 'featureRequest':
-                if (ws.user.isAdmin) {
-                    sendToClient(ws, { type: 'alert', message: 'Admins cannot submit feature requests.' });
-                    return;
-                }
-                const newRequest = {
-                    id: uuidv4(),
-                    userId: ws.user.id,
-                    userName: ws.user.name,
-                    text: data.text,
-                    timestamp: new Date().toISOString()
-                };
-                featureRequests.push(newRequest);
-                console.log(`New feature request from ${ws.user.name}: ${data.text}`);
-                
-                // Only broadcast to admins so they can see the new request
-                broadcast({ type: 'updateFeatureRequests', requests: featureRequests }, null, true);
-                break;
-                
-            case 'deleteFeatureRequest':
-                if (ws.user.isAdmin) {
-                    featureRequests = featureRequests.filter(request => request.id !== data.requestId);
-                    console.log(`Admin ${ws.user.name} deleted feature request: ${data.requestId}`);
-                    
-                    // Update all admins with the new list of feature requests
-                    broadcast({ type: 'updateFeatureRequests', requests: featureRequests }, null, true);
-                } else {
-                    sendToClient(ws, { type: 'alert', message: 'You are not authorized to perform this action.' });
-                }
-                break;
-
-            default:
-                console.warn('Unknown message type:', data.type);
-                break;
-        }
-    });
-
-    ws.on('close', () => {
-        if (ws.user) {
-            connectedUsers = removeUserById(connectedUsers, ws.user.id);
-            console.log(`${ws.user.name} has left the chat.`);
-            // Update all clients with the new user lists
-            broadcast({
-                type: 'updateUserLists',
-                connectedUsers: connectedUsers,
-                bannedUsers: bannedUsers
-            });
-        }
-    });
-
-    ws.on('error', error => {
-                console.error('WebSocket error:', error);
-            });
-        });
-        
-        server.listen(PORT, () => {
-            console.log(`WebSocket server started on port ${PORT}`);
-        });
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Server is listening on port ${PORT}`);
+});
