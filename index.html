@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebSocketChat</title>
+    <title>FireChat</title>
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -76,7 +76,7 @@
     <!-- Login Modal -->
     <div id="name-modal" class="modal-overlay">
         <div class="panel-bg rounded-xl shadow-2xl p-6 w-full max-w-sm relative">
-            <h1 class="text-3xl font-extrabold text-center mb-4 text-white">WebSocketChat</h1>
+            <h1 class="text-3xl font-extrabold text-center mb-4 text-white">FireChat</h1>
             
             <p class="text-gray-300 text-center mb-4">Please enter your username to join.</p>
             <input type="text" id="username-input" placeholder="Choose a username..." class="w-full p-3 rounded-lg border border-gray-600 bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 text-white mb-2" autocomplete="off">
@@ -134,7 +134,7 @@
 
         <!-- Right Column: Chat Display and Input -->
         <div class="col-span-1 md:col-span-2 flex flex-col">
-            <h1 class="text-2xl font-extrabold mb-4">WebSocketChat</h1>
+            <h1 class="text-2xl font-extrabold mb-4">FireChat</h1>
             <!-- Chat messages container -->
             <div id="chat-container" class="panel-bg flex-grow overflow-y-auto p-4 rounded-xl border border-gray-600 mb-4">
                 <!-- Messages will be injected here -->
@@ -221,6 +221,7 @@
         let adminMessages = [];
         let featureRequests = [];
         let currentPanel = 'user'; // 'user', 'moderator', 'admin-chat'
+        let specificCloseReasonReceived = false;
 
         // Element references
         const nameModal = document.getElementById('name-modal');
@@ -487,6 +488,7 @@
                         ws.close(); // Close the connection if banned
                         break;
                     case 'connectionDenied':
+                        specificCloseReasonReceived = true;
                         showMessageBox(data.reason);
                         ws.close();
                         break;
@@ -498,7 +500,10 @@
 
             ws.onclose = () => {
                 console.log("WebSocket connection closed.");
-                showMessageBox("Connection to the server was lost. Please log in again.");
+                if (!specificCloseReasonReceived) {
+                    showMessageBox("Connection to the server was lost. Please log in again.");
+                }
+                specificCloseReasonReceived = false;
                 resetAppState();
             };
 
