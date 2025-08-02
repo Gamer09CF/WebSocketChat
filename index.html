@@ -56,22 +56,6 @@
             </div>
         </div>
     </div>
-    
-    <!-- Feature Request Modal -->
-    <div id="feature-request-modal" class="hidden modal-overlay">
-        <div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 w-full max-w-lg">
-            <h3 class="text-xl font-bold mb-4 text-white">Submit a Feature Request</h3>
-            <textarea id="feature-request-input" rows="4" placeholder="Describe the feature you would like to see..." class="w-full p-3 rounded-lg border border-gray-600 bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 text-white mb-4"></textarea>
-            <div class="flex justify-end space-x-2">
-                <button id="cancel-request-button" class="px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition duration-200">
-                    Cancel
-                </button>
-                <button id="submit-request-button" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-200">
-                    Submit
-                </button>
-            </div>
-        </div>
-    </div>
 
     <!-- Login Modal -->
     <div id="name-modal" class="modal-overlay">
@@ -118,11 +102,8 @@
 
             <!-- User Actions Section -->
             <div class="flex flex-col space-y-2">
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-end">
                     <span id="current-user" class="text-sm font-medium text-gray-400"></span>
-                    <button id="feature-request-button" class="px-3 py-1 text-white text-sm font-bold rounded-lg bg-blue-600 hover:bg-blue-700 transition duration-200">
-                        Feature Request
-                    </button>
                 </div>
                 <div class="flex justify-end">
                     <button id="leave-button" class="px-3 py-1 text-white text-sm font-bold rounded-lg bg-red-600 hover:bg-red-700 transition duration-200">
@@ -195,9 +176,14 @@
         <div id="admin-chat-view" class="flex-grow flex-col hidden">
             <div class="flex items-center justify-between mb-4">
                 <h1 class="text-2xl font-extrabold text-white">Admin Chat</h1>
-                <button id="admin-back-to-mod-panel-btn" class="px-4 py-2 text-white font-bold rounded-lg bg-gray-600 hover:bg-gray-700 transition duration-200">
-                    Back to Panel
-                </button>
+                <div class="flex space-x-2">
+                    <button id="clear-chat-button" class="px-4 py-2 text-white font-bold rounded-lg bg-red-600 hover:bg-red-700 transition duration-200">
+                        Clear Chat
+                    </button>
+                    <button id="admin-back-to-mod-panel-btn" class="px-4 py-2 text-white font-bold rounded-lg bg-gray-600 hover:bg-gray-700 transition duration-200">
+                        Back to Panel
+                    </button>
+                </div>
             </div>
             <div id="admin-chat-container" class="panel-bg flex-grow overflow-y-auto p-4 rounded-xl border border-gray-600 mb-4">
                 <!-- Admin chat messages will be injected here -->
@@ -248,16 +234,13 @@
         const adminChatContainer = document.getElementById('admin-chat-container');
         const adminChatInput = document.getElementById('admin-chat-input');
         const adminChatSendBtn = document.getElementById('admin-chat-send-btn');
-        const featureRequestButton = document.getElementById('feature-request-button');
-        const featureRequestModal = document.getElementById('feature-request-modal');
-        const cancelRequestButton = document.getElementById('cancel-request-button');
-        const submitRequestButton = document.getElementById('submit-request-button');
-        const featureRequestInput = document.getElementById('feature-request-input');
         const modFeatureRequestsList = document.getElementById('mod-feature-requests-list');
         const customMessageBox = document.getElementById('custom-message-box');
         const messageText = document.getElementById('message-text');
         const closeMessageBox = document.getElementById('close-message-box');
         const currentUserSpan = document.getElementById('current-user');
+        const clearChatButton = document.getElementById('clear-chat-button');
+
         
         /**
          * Custom message box to replace alert().
@@ -402,7 +385,6 @@
             userChatPanel.classList.add('hidden');
             moderatorPanel.classList.add('hidden');
             adminPanelToggleBtn.classList.add('hidden');
-            featureRequestButton.classList.remove('hidden');
             nameModal.classList.remove('hidden');
         }
         
@@ -428,7 +410,7 @@
                 // Send a 'join' message to the server once the connection is open
                 ws.send(JSON.stringify({
                     type: 'join',
-                    userName: usernameInput.value || 'Admin',
+                    userName: usernameInput.value,
                     password: adminPasswordInput.value
                 }));
             };
@@ -518,6 +500,10 @@
             // Login buttons
             joinChatButton.addEventListener('click', () => {
                 const username = usernameInput.value.trim();
+                if (username.toLowerCase() === 'admin') {
+                    showMessageBox("The username Admin is reserved.");
+                    return;
+                }
                 if (username) {
                     connectWebSocket();
                 } else {
@@ -549,6 +535,15 @@
                 if (messageText && ws && ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({ type: 'adminMessage', text: messageText }));
                     adminChatInput.value = '';
+                }
+            });
+
+            // Clear chat button for admins
+            clearChatButton.addEventListener('click', () => {
+                if (ws && ws.readyState === WebSocket.OPEN && currentUser && currentUser.isAdmin) {
+                    ws.send(JSON.stringify({ type: 'clearChat' }));
+                } else {
+                    showMessageBox("You do not have permission to clear the chat.");
                 }
             });
 
@@ -586,30 +581,6 @@
                 }
             });
             adminBackToModPanelBtn.addEventListener('click', () => togglePanel('moderator'));
-            
-            // Feature request buttons
-            featureRequestButton.addEventListener('click', () => {
-                featureRequestModal.classList.remove('hidden');
-            });
-            cancelRequestButton.addEventListener('click', () => {
-                featureRequestModal.classList.add('hidden');
-                featureRequestInput.value = '';
-            });
-            submitRequestButton.addEventListener('click', () => {
-                const requestText = featureRequestInput.value.trim();
-                if (requestText) {
-                    if (ws && ws.readyState === WebSocket.OPEN && currentUser) {
-                        ws.send(JSON.stringify({ type: 'featureRequest', text: requestText }));
-                        featureRequestModal.classList.add('hidden');
-                        featureRequestInput.value = '';
-                        showMessageBox('Your feature request has been submitted!');
-                    } else {
-                        showMessageBox('Connection lost. Please reconnect and try again.');
-                    }
-                } else {
-                    showMessageBox('Please enter a description for your feature request.');
-                }
-            });
 
             // Moderator actions
             document.addEventListener('click', (e) => {
