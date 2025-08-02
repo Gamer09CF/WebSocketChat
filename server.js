@@ -12,8 +12,6 @@ const adminPassword = 'admin'; // Plaintext password
 const connectedUsers = new Map();
 const bannedUsers = new Map(); // Store banned user IDs and names
 let messages = [];
-let adminMessages = [];
-let featureRequests = [];
 
 // Serve the index.html file
 app.get('/', (req, res) => {
@@ -51,17 +49,6 @@ function updateUserLists() {
         type: 'updateUserLists',
         connectedUsers: usersArray,
         bannedUsers: bannedUsersArray
-    });
-
-    // Send feature requests to only admin clients
-    wss.clients.forEach(client => {
-        const user = client.user;
-        if (user && user.isAdmin) {
-            client.send(JSON.stringify({
-                type: 'updateFeatureRequests',
-                requests: featureRequests
-            }));
-        }
     });
 }
 
@@ -101,7 +88,6 @@ wss.on('connection', ws => {
                     connectedUsers.set(ws.user.id, ws.user);
                     ws.send(JSON.stringify({ type: 'joinSuccess', user: ws.user }));
                     ws.send(JSON.stringify({ type: 'chatHistory', messages }));
-                    ws.send(JSON.stringify({ type: 'adminChatHistory', messages: adminMessages }));
                     updateUserLists();
                     broadcast({ type: 'newMessage', message: { userName: 'Server', text: `${ws.user.name} has joined the chat.` } });
                 } else if (data.userName !== 'Admin') {
@@ -118,7 +104,7 @@ wss.on('connection', ws => {
 
             case 'chatMessage':
                 if (ws.user) {
-                    const message = { userName: ws.user.name, text: data.text, timestamp: new Date() };
+                    const message = { userName: ws.user.name, text: data.text, timestamp: new Date(), isAdmin: ws.user.isAdmin };
                     messages.push(message);
                     broadcast({ type: 'newMessage', message });
                 }
@@ -126,14 +112,9 @@ wss.on('connection', ws => {
 
             case 'adminMessage':
                 if (ws.user && ws.user.isAdmin) {
-                    const message = { userName: ws.user.name, text: data.text, timestamp: new Date() };
-                    adminMessages.push(message);
-                    // Only broadcast to admin clients
-                    wss.clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN && client.user && client.user.isAdmin) {
-                            client.send(JSON.stringify({ type: 'newAdminMessage', message }));
-                        }
-                    });
+                    const message = { userName: ws.user.name, text: data.text, timestamp: new Date(), isAdmin: true };
+                    messages.push(message);
+                    broadcast({ type: 'newMessage', message });
                 }
                 break;
 
@@ -171,42 +152,6 @@ wss.on('connection', ws => {
                     messages = []; // Clear the messages array
                     broadcast({ type: 'chatHistory', messages }); // Broadcast the empty history
                     broadcast({ type: 'alert', message: 'The chat has been cleared by an admin.' });
-                }
-                break;
-
-            case 'featureRequest':
-                if (ws.user) {
-                    const request = {
-                        id: Math.random().toString(36).substring(2, 9),
-                        userName: ws.user.name,
-                        text: data.text,
-                        timestamp: new Date()
-                    };
-                    featureRequests.push(request);
-                    // Only broadcast to admin clients
-                    wss.clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN && client.user && client.user.isAdmin) {
-                            client.send(JSON.stringify({
-                                type: 'updateFeatureRequests',
-                                requests: featureRequests
-                            }));
-                        }
-                    });
-                }
-                break;
-            
-            case 'deleteFeatureRequest':
-                if (ws.user && ws.user.isAdmin) {
-                    featureRequests = featureRequests.filter(req => req.id !== data.requestId);
-                    // Only broadcast to admin clients
-                    wss.clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN && client.user && client.user.isAdmin) {
-                            client.send(JSON.stringify({
-                                type: 'updateFeatureRequests',
-                                requests: featureRequests
-                            }));
-                        }
-                    });
                 }
                 break;
         }
