@@ -131,57 +131,46 @@
     </div>
 
     <!-- Moderator Panel -->
-    <div id="moderator-panel" class="panel-bg hidden w-full h-[90vh] max-w-4xl mx-auto p-6 rounded-xl shadow-2xl flex flex-col">
-        <!-- Header for the entire moderator panel -->
-        <div class="flex items-center justify-between mb-4">
-            <h1 id="mod-panel-title" class="text-2xl font-extrabold text-white">Moderator Panel</h1>
-            <div class="flex items-center space-x-2">
-                <button id="clear-chat-button" class="px-3 py-1 text-white text-sm font-bold rounded-lg bg-red-600 hover:bg-red-700 transition duration-200">
-                    Clear Chat
-                </button>
-                <button id="admin-panel-toggle-btn-mod" class="px-3 py-1 text-white text-sm font-bold rounded-lg bg-blue-600 hover:bg-blue-700 transition duration-200">
-                    Admin Chat
-                </button>
-                <span id="mod-logged-in-as" class="text-sm font-medium text-gray-400"></span>
-                <button id="mod-leave-button" class="px-3 py-1 text-white text-sm font-bold rounded-lg bg-red-600 hover:bg-red-700 transition duration-200">
-                    Logout
-                </button>
-            </div>
-        </div>
+    <div id="moderator-panel" class="panel-bg hidden w-full h-[90vh] max-w-4xl mx-auto p-6 rounded-xl shadow-2xl grid grid-cols-1 md:grid-cols-3 gap-6">
 
-        <!-- Main Content for Mod Panel (Users and Requests) -->
-        <div id="mod-content-view" class="flex-grow grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Left Column: User and Ban Controls -->
-            <div class="col-span-1 flex flex-col space-y-4">
-                <div class="flex flex-col flex-grow">
-                    <h3 class="text-lg font-semibold text-gray-300">Connected Users</h3>
-                    <div id="mod-connected-users-list" class="panel-bg overflow-y-auto p-2 rounded-xl border border-gray-600 mb-4 h-1/2">
-                        <!-- Connected users with Ban button -->
-                    </div>
-                    <h3 class="text-lg font-semibold text-gray-300">Banned Users</h3>
-                    <div id="mod-banned-users-list" class="panel-bg overflow-y-auto p-2 rounded-xl border border-gray-600 h-1/2">
-                        <!-- Banned users with Unban button -->
-                    </div>
+        <!-- Left Sidebar: User and Ban Controls -->
+        <div class="col-span-1 flex flex-col space-y-6">
+            <div class="flex items-center justify-between">
+                <h2 class="text-2xl font-extrabold text-white">Moderator Panel</h2>
+                <div class="flex items-center space-x-2">
+                    <button id="clear-chat-button" class="px-3 py-1 text-white text-sm font-bold rounded-lg bg-red-600 hover:bg-red-700 transition duration-200">
+                        Clear Chat
+                    </button>
+                    <span id="mod-logged-in-as" class="text-sm font-medium text-gray-400"></span>
+                    <button id="mod-leave-button" class="px-3 py-1 text-white text-sm font-bold rounded-lg bg-red-600 hover:bg-red-700 transition duration-200">
+                        Logout
+                    </button>
                 </div>
             </div>
-
-            <!-- Right Column: Feature Requests Inbox -->
-            <div class="col-span-1 flex flex-col">
-                <h2 class="text-2xl font-extrabold text-white mb-4">Feature Requests Inbox</h2>
-                <div id="mod-feature-requests-list" class="panel-bg flex-grow overflow-y-auto p-4 rounded-xl border border-gray-600">
-                    <!-- Feature requests will be injected here -->
+            
+            <div class="flex flex-col flex-grow overflow-hidden">
+                <h3 class="text-lg font-semibold text-gray-300">Connected Users</h3>
+                <div id="mod-connected-users-list" class="panel-bg overflow-y-auto p-2 rounded-xl border border-gray-600 mb-4 h-1/2">
+                    <!-- Connected users with Ban button -->
+                </div>
+                <h3 class="text-lg font-semibold text-gray-300">Banned Users</h3>
+                <div id="mod-banned-users-list" class="panel-bg overflow-y-auto p-2 rounded-xl border border-gray-600 h-1/2">
+                    <!-- Banned users with Unban button -->
                 </div>
             </div>
         </div>
 
-        <!-- Admin Chat Panel -->
-        <div id="admin-chat-view" class="flex-grow flex-col hidden">
-            <div id="admin-chat-container" class="panel-bg flex-grow overflow-y-auto p-4 rounded-xl border border-gray-600 mb-4">
-                <!-- Admin chat messages will be injected here -->
+        <!-- Right Column: Main Chat Interface -->
+        <div class="col-span-1 md:col-span-2 flex flex-col">
+            <h1 class="text-2xl font-extrabold mb-4">Community Chat</h1>
+            <!-- Chat messages container -->
+            <div id="mod-chat-container" class="panel-bg flex-grow overflow-y-auto p-4 rounded-xl border border-gray-600 mb-4">
+                <!-- Messages will be injected here -->
             </div>
-            <form id="admin-chat-form" class="flex items-center space-x-2">
-                <input type="text" id="admin-chat-input" placeholder="Message admins..." class="flex-grow p-3 rounded-lg border border-gray-600 bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 text-white" autocomplete="off">
-                <button type="button" id="admin-chat-send-btn" class="p-3 text-white font-bold rounded-lg bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200">
+            <!-- Message input form -->
+            <form id="mod-message-form" class="flex items-center space-x-2">
+                <input type="text" id="mod-message-input" placeholder="Type a message..." class="flex-grow p-3 rounded-lg border border-gray-600 bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 text-white" autocomplete="off">
+                <button type="button" id="mod-send-button" class="p-3 text-white font-bold rounded-lg bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition duration-200">
                     Send
                 </button>
             </form>
@@ -195,9 +184,6 @@
         let connectedUsers = [];
         let bannedUsers = [];
         let messages = [];
-        let adminMessages = [];
-        let featureRequests = [];
-        let currentPanel = 'user'; // 'user', 'moderator', 'admin-chat'
         let specificCloseReasonReceived = false;
 
         // Element references
@@ -208,12 +194,12 @@
         const adminLoginButton = document.getElementById('admin-login-button');
         const userChatPanel = document.getElementById('user-chat-panel');
         const moderatorPanel = document.getElementById('moderator-panel');
-        const modPanelTitle = document.getElementById('mod-panel-title');
-        const modContentView = document.getElementById('mod-content-view');
-        const adminChatView = document.getElementById('admin-chat-view');
         const chatContainer = document.getElementById('chat-container');
+        const modChatContainer = document.getElementById('mod-chat-container');
         const messageInput = document.getElementById('message-input');
+        const modMessageInput = document.getElementById('mod-message-input');
         const sendButton = document.getElementById('send-button');
+        const modSendButton = document.getElementById('mod-send-button');
         const usersList = document.getElementById('users-list');
         const leaveButton = document.getElementById('leave-button');
         const adminPanelToggleBtn = document.getElementById('admin-panel-toggle-btn');
@@ -221,12 +207,6 @@
         const modLeaveButton = document.getElementById('mod-leave-button');
         const modConnectedUsersList = document.getElementById('mod-connected-users-list');
         const modBannedUsersList = document.getElementById('mod-banned-users-list');
-        const adminChatToggleBtnMod = document.getElementById('admin-panel-toggle-btn-mod');
-        const adminBackToModPanelBtn = document.getElementById('admin-back-to-mod-panel-btn');
-        const adminChatContainer = document.getElementById('admin-chat-container');
-        const adminChatInput = document.getElementById('admin-chat-input');
-        const adminChatSendBtn = document.getElementById('admin-chat-send-btn');
-        const modFeatureRequestsList = document.getElementById('mod-feature-requests-list');
         const customMessageBox = document.getElementById('custom-message-box');
         const messageText = document.getElementById('message-text');
         const closeMessageBox = document.getElementById('close-message-box');
@@ -251,9 +231,13 @@
                 const messageItem = document.createElement('div');
                 messageItem.className = 'p-3 rounded-lg message-item';
                 let senderClass = 'text-gray-300';
-                if (message.userName === 'Admin') {
+                if (message.isAdmin) {
                     senderClass = 'text-red-400';
                 }
+                if (message.userName === 'Server') {
+                    senderClass = 'text-green-400 italic';
+                }
+                
                 messageItem.innerHTML = `<span class="font-bold ${senderClass}">${message.userName}:</span> ${message.text}`;
                 container.appendChild(messageItem);
             });
@@ -302,35 +286,12 @@
         }
 
         /**
-         * Renders the list of feature requests.
-         */
-        function renderFeatureRequests() {
-            if (!currentUser || !currentUser.isAdmin) return;
-
-            modFeatureRequestsList.innerHTML = '';
-            featureRequests.forEach(request => {
-                const requestItem = document.createElement('div');
-                requestItem.className = 'flex items-start justify-between p-3 rounded-lg request-item';
-                requestItem.innerHTML = `
-                    <div class="flex-grow">
-                        <span class="font-bold text-gray-300">From ${request.userName}:</span>
-                        <p class="text-sm text-gray-400 mt-1">${request.text}</p>
-                    </div>
-                    <button class="delete-request-button ml-4 px-2 py-1 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-700 transition duration-200" data-request-id="${request.id}">Delete</button>
-                `;
-                modFeatureRequestsList.appendChild(requestItem);
-            });
-        }
-        
-        /**
          * Toggles between chat panels.
-         * @param {string} panel - The panel to show ('user', 'moderator', 'admin-chat').
+         * @param {string} panel - The panel to show ('user' or 'moderator').
          */
         function togglePanel(panel) {
             userChatPanel.classList.add('hidden');
             moderatorPanel.classList.add('hidden');
-            modContentView.classList.add('hidden');
-            adminChatView.classList.add('hidden');
             
             switch (panel) {
                 case 'user':
@@ -338,18 +299,8 @@
                     break;
                 case 'moderator':
                     moderatorPanel.classList.remove('hidden');
-                    modContentView.classList.remove('hidden');
-                    adminChatToggleBtnMod.textContent = 'Admin Chat';
-                    modPanelTitle.textContent = 'Moderator Panel';
-                    break;
-                case 'admin-chat':
-                    moderatorPanel.classList.remove('hidden');
-                    adminChatView.classList.remove('hidden');
-                    adminChatToggleBtnMod.textContent = 'Back to Panel';
-                    modPanelTitle.textContent = 'Admin Chat';
                     break;
             }
-            currentPanel = panel;
         }
 
         /**
@@ -361,18 +312,15 @@
             connectedUsers = [];
             bannedUsers = [];
             messages = [];
-            adminMessages = [];
-            featureRequests = [];
-            currentPanel = 'user';
             
             // Clear UI elements
             chatContainer.innerHTML = '';
+            modChatContainer.innerHTML = '';
             messageInput.value = '';
+            modMessageInput.value = '';
             usersList.innerHTML = '';
             modConnectedUsersList.innerHTML = '';
             modBannedUsersList.innerHTML = '';
-            if (modFeatureRequestsList) modFeatureRequestsList.innerHTML = '';
-            if (adminChatContainer) adminChatContainer.innerHTML = '';
 
             // Hide panels and show login
             userChatPanel.classList.add('hidden');
@@ -428,32 +376,18 @@
                     case 'chatHistory':
                         messages = data.messages;
                         renderMessages(messages, chatContainer);
-                        break;
-                    case 'adminChatHistory':
-                        adminMessages = data.messages;
-                        renderMessages(adminMessages, adminChatContainer);
+                        renderMessages(messages, modChatContainer);
                         break;
                     case 'newMessage':
                         messages.push(data.message);
-                        if (currentPanel === 'user') {
-                            renderMessages(messages, chatContainer);
-                        }
-                        break;
-                    case 'newAdminMessage':
-                        adminMessages.push(data.message);
-                        if (currentPanel === 'admin-chat') {
-                            renderMessages(adminMessages, adminChatContainer);
-                        }
+                        renderMessages(messages, chatContainer);
+                        renderMessages(messages, modChatContainer);
                         break;
                     case 'updateUserLists':
                         connectedUsers = data.connectedUsers;
                         bannedUsers = data.bannedUsers;
                         renderUsersList();
                         renderModUserLists();
-                        break;
-                    case 'updateFeatureRequests':
-                        featureRequests = data.requests;
-                        renderFeatureRequests();
                         break;
                     case 'alert':
                         showMessageBox(data.message);
@@ -523,14 +457,14 @@
                 }
             });
 
-            adminChatSendBtn.addEventListener('click', () => {
-                const messageText = adminChatInput.value.trim();
+            modSendButton.addEventListener('click', () => {
+                const messageText = modMessageInput.value.trim();
                 if (messageText && ws && ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({ type: 'adminMessage', text: messageText }));
-                    adminChatInput.value = '';
+                    modMessageInput.value = '';
                 }
             });
-
+            
             // Clear chat button for admins
             clearChatButton.addEventListener('click', () => {
                 if (ws && ws.readyState === WebSocket.OPEN && currentUser && currentUser.isAdmin) {
@@ -545,10 +479,10 @@
                 e.preventDefault();
                 sendButton.click();
             });
-
-            document.getElementById('admin-chat-form').addEventListener('submit', (e) => {
+            
+            document.getElementById('mod-message-form').addEventListener('submit', (e) => {
                 e.preventDefault();
-                adminChatSendBtn.click();
+                modSendButton.click();
             });
 
             // Leave buttons
@@ -566,14 +500,6 @@
             
             // Panel toggles
             adminPanelToggleBtn.addEventListener('click', () => togglePanel('moderator'));
-            adminChatToggleBtnMod.addEventListener('click', () => {
-                if (currentPanel === 'moderator') {
-                    togglePanel('admin-chat');
-                } else {
-                    togglePanel('moderator');
-                }
-            });
-            adminBackToModPanelBtn.addEventListener('click', () => togglePanel('moderator'));
 
             // Moderator actions
             document.addEventListener('click', (e) => {
@@ -587,12 +513,6 @@
                     const userId = e.target.dataset.userId;
                     if (ws && ws.readyState === WebSocket.OPEN && currentUser && currentUser.isAdmin) {
                         ws.send(JSON.stringify({ type: 'unbanUser', userId }));
-                    }
-                }
-                if (e.target.classList.contains('delete-request-button')) {
-                    const requestId = e.target.dataset.requestId;
-                    if (ws && ws.readyState === WebSocket.OPEN && currentUser && currentUser.isAdmin) {
-                        ws.send(JSON.stringify({ type: 'deleteFeatureRequest', requestId }));
                     }
                 }
             });
