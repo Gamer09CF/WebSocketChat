@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebSocketChat</title>
+    <title>FireChat</title>
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -76,7 +76,7 @@
     <!-- Login Modal -->
     <div id="name-modal" class="modal-overlay">
         <div class="panel-bg rounded-xl shadow-2xl p-6 w-full max-w-sm relative">
-            <h1 class="text-3xl font-extrabold text-center mb-4 text-white">WebSocketChat</h1>
+            <h1 class="text-3xl font-extrabold text-center mb-4 text-white">FireChat</h1>
             
             <p class="text-gray-300 text-center mb-4">Please enter your username to join.</p>
             <input type="text" id="username-input" placeholder="Choose a username..." class="w-full p-3 rounded-lg border border-gray-600 bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 text-white mb-2" autocomplete="off">
@@ -134,7 +134,7 @@
 
         <!-- Right Column: Chat Display and Input -->
         <div class="col-span-1 md:col-span-2 flex flex-col">
-            <h1 class="text-2xl font-extrabold mb-4">WebSocketChat</h1>
+            <h1 class="text-2xl font-extrabold mb-4">FireChat</h1>
             <!-- Chat messages container -->
             <div id="chat-container" class="panel-bg flex-grow overflow-y-auto p-4 rounded-xl border border-gray-600 mb-4">
                 <!-- Messages will be injected here -->
@@ -191,390 +191,385 @@
         <div id="admin-chat-panel" class="col-span-2 flex flex-col hidden">
             <div class="flex items-center justify-between mb-4">
                 <h1 class="text-2xl font-extrabold text-white">Admin Chat</h1>
-                <div class="flex items-center space-x-2">
-                    <button id="admin-back-to-mod-panel" class="px-3 py-1 text-white text-sm font-bold rounded-lg bg-blue-600 hover:bg-blue-700 transition duration-200">
-                        Back to Moderator Panel
-                    </button>
-                    <button id="admin-chat-leave-button" class="px-3 py-1 text-white text-sm font-bold rounded-lg bg-red-600 hover:bg-red-700 transition duration-200">
-                        Logout
-                    </button>
-                </div>
+                <button id="admin-back-to-mod-panel-btn" class="px-4 py-2 text-white font-bold rounded-lg bg-gray-600 hover:bg-gray-700 transition duration-200">
+                    Back to Panel
+                </button>
             </div>
             <div id="admin-chat-container" class="panel-bg flex-grow overflow-y-auto p-4 rounded-xl border border-gray-600 mb-4">
                 <!-- Admin chat messages will be injected here -->
             </div>
-            <form id="admin-message-form" class="flex items-center space-x-2">
-                <input type="text" id="admin-message-input" placeholder="Type a message as ADMIN..." class="flex-grow p-3 rounded-lg border border-gray-600 bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 text-white" autocomplete="off">
-                <button type="button" id="admin-send-button" class="p-3 text-white font-bold rounded-lg bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition duration-200">
+            <form id="admin-chat-form" class="flex items-center space-x-2">
+                <input type="text" id="admin-chat-input" placeholder="Message admins..." class="flex-grow p-3 rounded-lg border border-gray-600 bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 text-white" autocomplete="off">
+                <button type="button" id="admin-chat-send-btn" class="p-3 text-white font-bold rounded-lg bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200">
                     Send
                 </button>
             </form>
         </div>
     </div>
-
+    
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        // Global variables
+        let ws;
+        let currentUser = null;
+        let connectedUsers = [];
+        let bannedUsers = [];
+        let messages = [];
+        let adminMessages = [];
+        let featureRequests = [];
+        let currentPanel = 'user'; // 'user', 'moderator', 'admin-chat'
 
-            // --- WebSocket URL ---
-            // The URL for the WebSocket. If using playit.gg, you must replace 'localhost'
-            // with the public URL playit.gg provides (e.g., 'wss://your-subdomain.playit.gg')
-            const websocketUrl = 'ws://websocketchat-chris.onrender.com:8080';
+        // Element references
+        const nameModal = document.getElementById('name-modal');
+        const usernameInput = document.getElementById('username-input');
+        const adminPasswordInput = document.getElementById('admin-password-input');
+        const joinChatButton = document.getElementById('join-chat-button');
+        const adminLoginButton = document.getElementById('admin-login-button');
+        const userChatPanel = document.getElementById('user-chat-panel');
+        const moderatorPanel = document.getElementById('moderator-panel');
+        const adminChatPanel = document.getElementById('admin-chat-panel');
+        const chatContainer = document.getElementById('chat-container');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const usersList = document.getElementById('users-list');
+        const leaveButton = document.getElementById('leave-button');
+        const adminPanelToggleBtn = document.getElementById('admin-panel-toggle-btn');
+        const modLoggedInAs = document.getElementById('mod-logged-in-as');
+        const modLeaveButton = document.getElementById('mod-leave-button');
+        const modConnectedUsersList = document.getElementById('mod-connected-users-list');
+        const modBannedUsersList = document.getElementById('mod-banned-users-list');
+        const adminChatToggleBtn = document.getElementById('admin-chat-toggle-btn');
+        const adminBackToModPanelBtn = document.getElementById('admin-back-to-mod-panel-btn');
+        const adminChatContainer = document.getElementById('admin-chat-container');
+        const adminChatInput = document.getElementById('admin-chat-input');
+        const adminChatSendBtn = document.getElementById('admin-chat-send-btn');
+        const featureRequestButton = document.getElementById('feature-request-button');
+        const featureRequestModal = document.getElementById('feature-request-modal');
+        const cancelRequestButton = document.getElementById('cancel-request-button');
+        const submitRequestButton = document.getElementById('submit-request-button');
+        const featureRequestInput = document.getElementById('feature-request-input');
+        const modFeatureRequestsList = document.getElementById('mod-feature-requests-list');
+        const customMessageBox = document.getElementById('custom-message-box');
+        const messageText = document.getElementById('message-text');
+        const closeMessageBox = document.getElementById('close-message-box');
+        const currentUserSpan = document.getElementById('current-user');
+        
+        /**
+         * Custom message box to replace alert().
+         * @param {string} message - The message to display.
+         */
+        function showMessageBox(message) {
+            messageText.textContent = message;
+            customMessageBox.classList.remove('hidden');
+        }
 
-            // --- UI Elements ---
-            const usernameInput = document.getElementById('username-input');
-            const joinChatButton = document.getElementById('join-chat-button');
-            const adminLoginButton = document.getElementById('admin-login-button');
-            const adminPasswordInput = document.getElementById('admin-password-input');
-            const nameModal = document.getElementById('name-modal');
-            const userChatPanel = document.getElementById('user-chat-panel');
-            const moderatorPanel = document.getElementById('moderator-panel');
-            const currentUserSpan = document.getElementById('current-user');
-            const messageInput = document.getElementById('message-input');
-            const sendButton = document.getElementById('send-button');
-            const chatContainer = document.getElementById('chat-container');
-            const leaveButton = document.getElementById('leave-button');
-            const adminPanelToggleBtn = document.getElementById('admin-panel-toggle-btn');
-            const featureRequestButton = document.getElementById('feature-request-button');
-            const usersList = document.getElementById('users-list');
-            
-            const modLoggedInAs = document.getElementById('mod-logged-in-as');
-            const modLeaveButton = document.getElementById('mod-leave-button');
-            const modConnectedUsersList = document.getElementById('mod-connected-users-list');
-            const modBannedUsersList = document.getElementById('mod-banned-users-list');
-            const adminChatToggleBtn = document.getElementById('admin-chat-toggle-btn');
-            const modControlPanel = document.getElementById('mod-control-panel');
-            const modFeatureRequestsPanel = document.getElementById('mod-feature-requests-panel');
-            const adminChatPanel = document.getElementById('admin-chat-panel');
-            const adminBackToModPanelBtn = document.getElementById('admin-back-to-mod-panel');
-            const modFeatureRequestsList = document.getElementById('mod-feature-requests-list');
-            const adminMessageInput = document.getElementById('admin-message-input');
-            const adminSendButton = document.getElementById('admin-send-button');
-            const adminChatContainer = document.getElementById('admin-chat-container');
-            const adminChatLeaveButton = document.getElementById('admin-chat-leave-button');
+        /**
+         * Renders the chat messages to the UI.
+         */
+        function renderMessages(messagesToRender, container) {
+            container.innerHTML = '';
+            messagesToRender.forEach(message => {
+                const messageItem = document.createElement('div');
+                messageItem.className = 'p-3 rounded-lg message-item';
+                let senderClass = 'text-gray-300';
+                if (message.userName === 'Admin') {
+                    senderClass = 'text-red-400';
+                }
+                messageItem.innerHTML = `<span class="font-bold ${senderClass}">${message.userName}:</span> ${message.text}`;
+                container.appendChild(messageItem);
+            });
+            container.scrollTop = container.scrollHeight;
+        }
 
-            // Custom message box for alerts
-            const customMessageBox = document.getElementById('custom-message-box');
-            const messageText = document.getElementById('message-text');
-            const closeMessageBoxButton = document.getElementById('close-message-box');
+        /**
+         * Renders the list of connected users.
+         */
+        function renderUsersList() {
+            usersList.innerHTML = '';
+            connectedUsers.forEach(user => {
+                const userItem = document.createElement('div');
+                userItem.className = 'p-2 rounded-md hover:bg-gray-700 transition duration-150';
+                userItem.innerHTML = `<span class="text-sm font-medium text-gray-300">${user.name}</span>`;
+                usersList.appendChild(userItem);
+            });
+        }
 
-            // Feature request modal
-            const featureRequestModal = document.getElementById('feature-request-modal');
-            const featureRequestInput = document.getElementById('feature-request-input');
-            const submitRequestButton = document.getElementById('submit-request-button');
-            const cancelRequestButton = document.getElementById('cancel-request-button');
-
-            // --- State Management ---
-            let ws;
-            let currentUser = null;
-            let isBanned = false;
-            let isConnected = false;
-            
-            // --- Helper Functions ---
-            const showMessageBox = (message) => {
-                messageText.textContent = message;
-                customMessageBox.classList.remove('hidden');
-            };
-
-            closeMessageBoxButton.addEventListener('click', () => {
-                customMessageBox.classList.add('hidden');
+        /**
+         * Renders the moderator's connected and banned user lists.
+         */
+        function renderModUserLists() {
+            if (!currentUser || !currentUser.isAdmin) return;
+            modConnectedUsersList.innerHTML = '';
+            connectedUsers.forEach(user => {
+                const userItem = document.createElement('div');
+                userItem.className = 'flex items-center justify-between p-2 rounded-md hover:bg-gray-700 transition duration-150';
+                userItem.innerHTML = `
+                    <span class="text-sm font-medium text-gray-300">${user.name}</span>
+                    <button class="ban-button px-2 py-1 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-700 transition duration-200" data-user-id="${user.id}">Ban</button>
+                `;
+                modConnectedUsersList.appendChild(userItem);
             });
 
-            const renderMessage = (message, container, selfId) => {
-                const messageDiv = document.createElement('div');
-                messageDiv.classList.add('flex', 'flex-col', 'p-2', 'my-2', 'rounded-lg', 'shadow-md', 'break-words', 'message-item');
-                
-                if (message.userId === selfId) {
-                    messageDiv.classList.add('bg-blue-600', 'self-end', 'ml-auto', 'max-w-md');
-                } else {
-                    messageDiv.classList.add('bg-gray-600', 'self-start', 'mr-auto', 'max-w-md');
-                }
-                
-                const timestamp = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                messageDiv.innerHTML = `
-                    <div class="flex items-center mb-1">
-                        <span class="font-bold text-sm text-gray-100">${message.userName}</span>
-                        <span class="text-xs text-gray-300 ml-2">${timestamp}</span>
-                    </div>
-                    <p class="text-sm text-gray-100">${message.text}</p>
+            modBannedUsersList.innerHTML = '';
+            bannedUsers.forEach(user => {
+                const userItem = document.createElement('div');
+                userItem.className = 'flex items-center justify-between p-2 rounded-md hover:bg-gray-700 transition duration-150';
+                userItem.innerHTML = `
+                    <span class="text-sm font-medium text-gray-400">${user.name}</span>
+                    <button class="unban-button px-2 py-1 text-xs font-bold rounded-lg bg-green-600 hover:bg-green-700 transition duration-200" data-user-id="${user.id}">Unban</button>
                 `;
-                container.appendChild(messageDiv);
-                container.scrollTop = container.scrollHeight;
-            };
+                modBannedUsersList.appendChild(userItem);
+            });
+        }
 
-            const renderUser = (user, type = 'connected') => {
-                const userDiv = document.createElement('div');
-                userDiv.classList.add('flex', 'items-center', 'justify-between', 'p-2', 'rounded-lg', 'my-1', 'border', 'border-gray-600');
-                userDiv.innerHTML = `
-                    <div class="flex flex-col">
-                        <span class="text-sm font-semibold text-gray-200">${user.name}</span>
-                        <span class="text-xs text-gray-400 truncate w-32 md:w-full">ID: ${user.id}</span>
+        /**
+         * Renders the list of feature requests.
+         */
+        function renderFeatureRequests() {
+            if (!currentUser || !currentUser.isAdmin) return;
+
+            modFeatureRequestsList.innerHTML = '';
+            featureRequests.forEach(request => {
+                const requestItem = document.createElement('div');
+                requestItem.className = 'flex items-start justify-between p-3 rounded-lg request-item';
+                requestItem.innerHTML = `
+                    <div class="flex-grow">
+                        <span class="font-bold text-gray-300">From ${request.userName}:</span>
+                        <p class="text-sm text-gray-400 mt-1">${request.text}</p>
                     </div>
+                    <button class="delete-request-button ml-4 px-2 py-1 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-700 transition duration-200" data-request-id="${request.id}">Delete</button>
                 `;
-                
-                const actionButton = document.createElement('button');
-                actionButton.classList.add('px-3', 'py-1', 'text-white', 'text-xs', 'font-bold', 'rounded-lg', 'transition', 'duration-200');
-                
-                if (type === 'connected') {
-                    actionButton.textContent = 'Ban';
-                    actionButton.classList.add('bg-red-600', 'hover:bg-red-700');
-                    actionButton.addEventListener('click', () => {
-                        ws.send(JSON.stringify({ type: 'banUser', userId: user.id }));
-                    });
-                } else if (type === 'banned') {
-                    actionButton.textContent = 'Unban';
-                    actionButton.classList.add('bg-green-600', 'hover:bg-green-700');
-                    actionButton.addEventListener('click', () => {
-                        ws.send(JSON.stringify({ type: 'unbanUser', userId: user.id }));
-                    });
-                }
+                modFeatureRequestsList.appendChild(requestItem);
+            });
+        }
+        
+        /**
+         * Toggles between chat panels.
+         * @param {string} panel - The panel to show ('user', 'moderator', 'admin-chat').
+         */
+        function togglePanel(panel) {
+            userChatPanel.classList.add('hidden');
+            moderatorPanel.classList.add('hidden');
+            adminChatPanel.classList.add('hidden');
 
-                // Only show button if user is not the current user
-                if (currentUser && user.id !== currentUser.id) {
-                    userDiv.appendChild(actionButton);
-                }
-                
-                return userDiv;
-            };
-
-            const togglePanel = (panelName) => {
-                // Hide all main panels by default
-                userChatPanel.classList.add('hidden');
-                moderatorPanel.classList.add('hidden');
-                adminChatPanel.classList.add('hidden');
-                nameModal.classList.add('hidden');
-                adminPanelToggleBtn.classList.add('hidden');
-
-                if (panelName === 'mod') {
-                    // Show moderator panel and its sub-panels
-                    moderatorPanel.classList.remove('hidden');
-                    modControlPanel.classList.remove('hidden');
-                    modFeatureRequestsPanel.classList.remove('hidden');
-                    adminChatPanel.classList.add('hidden');
-                    modLoggedInAs.textContent = `Logged in as: ${currentUser.name}`;
-                } else if (panelName === 'chat') {
+            switch (panel) {
+                case 'user':
                     userChatPanel.classList.remove('hidden');
-                    // Only show the admin panel toggle button if the user is an admin
-                    if (currentUser && currentUser.isAdmin) {
-                        adminPanelToggleBtn.classList.remove('hidden');
-                    }
-                    currentUserSpan.textContent = `You are: ${currentUser.name}`;
-                } else if (panelName === 'admin-chat') {
-                    // Show the admin chat, but hide the moderator control sub-panels
+                    break;
+                case 'moderator':
                     moderatorPanel.classList.remove('hidden');
-                    modControlPanel.classList.add('hidden');
-                    modFeatureRequestsPanel.classList.add('hidden');
+                    break;
+                case 'admin-chat':
+                    moderatorPanel.classList.remove('hidden');
                     adminChatPanel.classList.remove('hidden');
-                } else {
-                     nameModal.classList.remove('hidden');
-                }
-            };
+                    document.getElementById('mod-control-panel').classList.add('hidden');
+                    document.getElementById('mod-feature-requests-panel').classList.add('hidden');
+                    break;
+            }
+            currentPanel = panel;
+        }
+
+        /**
+         * Resets the application state to its initial login screen.
+         */
+        function resetAppState() {
+            ws = null;
+            currentUser = null;
+            connectedUsers = [];
+            bannedUsers = [];
+            messages = [];
+            adminMessages = [];
+            featureRequests = [];
+            currentPanel = 'user';
             
-            const leave = () => {
-                if (ws && isConnected) {
-                    ws.close();
-                    isConnected = false;
+            // Clear UI elements
+            chatContainer.innerHTML = '';
+            messageInput.value = '';
+            usersList.innerHTML = '';
+            modConnectedUsersList.innerHTML = '';
+            modBannedUsersList.innerHTML = '';
+            if (modFeatureRequestsList) modFeatureRequestsList.innerHTML = '';
+            if (adminChatContainer) adminChatContainer.innerHTML = '';
+
+            // Hide panels and show login
+            userChatPanel.classList.add('hidden');
+            moderatorPanel.classList.add('hidden');
+            adminPanelToggleBtn.classList.add('hidden');
+            featureRequestButton.classList.remove('hidden');
+            nameModal.classList.remove('hidden');
+        }
+        
+        /**
+         * Establishes a WebSocket connection.
+         */
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = 'websocketchat-chris.onrender.com';
+            const port = '8080';
+            const wsUrl = `${protocol}//${host}:${port}`;
+
+            try {
+                ws = new WebSocket(wsUrl);
+            } catch (error) {
+                console.error("Failed to connect to WebSocket:", error);
+                showMessageBox("Failed to connect to the server. Please check your connection or try again later.");
+                return;
+            }
+
+            ws.onopen = () => {
+                console.log("WebSocket connection established.");
+                // Send a 'join' message to the server once the connection is open
+                ws.send(JSON.stringify({
+                    type: 'join',
+                    userName: usernameInput.value || 'Admin',
+                    password: adminPasswordInput.value
+                }));
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log("Received data:", data);
+
+                switch (data.type) {
+                    case 'joinSuccess':
+                        currentUser = data.user;
+                        nameModal.classList.add('hidden');
+                        if (currentUser.isAdmin) {
+                            togglePanel('moderator');
+                            adminPanelToggleBtn.classList.remove('hidden');
+                            modLoggedInAs.textContent = `Logged in as: ${currentUser.name}`;
+                        } else {
+                            togglePanel('user');
+                            currentUserSpan.textContent = `Logged in as: ${currentUser.name}`;
+                        }
+                        break;
+                    case 'chatHistory':
+                        messages = data.messages;
+                        renderMessages(messages, chatContainer);
+                        break;
+                    case 'adminChatHistory':
+                        adminMessages = data.messages;
+                        renderMessages(adminMessages, adminChatContainer);
+                        break;
+                    case 'newMessage':
+                        messages.push(data.message);
+                        if (currentPanel === 'user') {
+                            renderMessages(messages, chatContainer);
+                        }
+                        break;
+                    case 'newAdminMessage':
+                        adminMessages.push(data.message);
+                        if (currentPanel === 'admin-chat') {
+                            renderMessages(adminMessages, adminChatContainer);
+                        }
+                        break;
+                    case 'updateUserLists':
+                        connectedUsers = data.connectedUsers;
+                        bannedUsers = data.bannedUsers;
+                        renderUsersList();
+                        renderModUserLists();
+                        break;
+                    case 'updateFeatureRequests':
+                        featureRequests = data.requests;
+                        renderFeatureRequests();
+                        break;
+                    case 'alert':
+                        showMessageBox(data.message);
+                        break;
+                    case 'banned':
+                        showMessageBox(data.message || 'You have been banned from this chat.');
+                        ws.close(); // Close the connection if banned
+                        break;
+                    case 'connectionDenied':
+                        showMessageBox(data.reason);
+                        ws.close();
+                        break;
+                    default:
+                        console.warn('Unknown message type:', data.type);
+                        break;
                 }
-                togglePanel('login');
-                currentUser = null;
-                isBanned = false;
-                usernameInput.value = '';
-                adminPasswordInput.value = '';
-                chatContainer.innerHTML = '';
-                usersList.innerHTML = '';
-                modConnectedUsersList.innerHTML = '';
-                modBannedUsersList.innerHTML = '';
-                modFeatureRequestsList.innerHTML = '';
-                showMessageBox('You have left the chat.');
             };
 
-            // --- WebSocket Connection ---
-            const connectWebSocket = (userName, password) => {
-                ws = new WebSocket(websocketUrl);
-
-                ws.onopen = () => {
-                    console.log('Connected to WebSocket server');
-                    ws.send(JSON.stringify({ type: 'join', userName, password }));
-                    isConnected = true;
-                    showMessageBox('Successfully connected to the chat.');
-                };
-
-                ws.onmessage = (event) => {
-                    const data = JSON.parse(event.data);
-                    
-                    switch (data.type) {
-                        case 'joinSuccess':
-                            currentUser = data.user;
-                            nameModal.classList.add('hidden');
-                            if (currentUser.isAdmin) {
-                                togglePanel('mod');
-                            } else {
-                                togglePanel('chat');
-                            }
-                            break;
-                        case 'chatHistory':
-                            chatContainer.innerHTML = '';
-                            adminChatContainer.innerHTML = '';
-                            data.messages.forEach(message => {
-                                renderMessage(message, chatContainer, currentUser ? currentUser.id : null);
-                                renderMessage(message, adminChatContainer, currentUser ? currentUser.id : null);
-                            });
-                            chatContainer.scrollTop = chatContainer.scrollHeight;
-                            adminChatContainer.scrollTop = adminChatContainer.scrollHeight;
-                            break;
-                        case 'newMessage':
-                            renderMessage(data.message, chatContainer, currentUser ? currentUser.id : null);
-                            renderMessage(data.message, adminChatContainer, currentUser ? currentUser.id : null);
-                            chatContainer.scrollTop = chatContainer.scrollHeight;
-                            adminChatContainer.scrollTop = adminChatContainer.scrollHeight;
-                            break;
-                        case 'updateUserLists':
-                            usersList.innerHTML = '';
-                            modConnectedUsersList.innerHTML = '';
-                            modBannedUsersList.innerHTML = '';
-                            
-                            const connectedUsers = data.connectedUsers || [];
-                            const bannedUsers = data.bannedUsers || [];
-                            
-                            connectedUsers.forEach(user => {
-                                const userItem = document.createElement('div');
-                                userItem.className = 'flex items-center space-x-2 p-2 rounded-lg my-1';
-                                userItem.innerHTML = `<div class="w-2 h-2 rounded-full bg-green-500"></div><span class="text-sm font-medium">${user.name}</span>`;
-                                usersList.appendChild(userItem);
-                                
-                                if (currentUser && currentUser.isAdmin) {
-                                    modConnectedUsersList.appendChild(renderUser(user, 'connected'));
-                                }
-                            });
-                            
-                            bannedUsers.forEach(user => {
-                                if (currentUser && currentUser.isAdmin) {
-                                    modBannedUsersList.appendChild(renderUser(user, 'banned'));
-                                }
-                            });
-                            break;
-                        case 'updateFeatureRequests':
-                            if (currentUser && currentUser.isAdmin) {
-                                modFeatureRequestsList.innerHTML = '';
-                                data.requests.forEach(request => {
-                                    const requestItem = document.createElement('div');
-                                    requestItem.className = 'bg-gray-700 p-3 rounded-lg mb-2 flex justify-between items-start request-item';
-                                    
-                                    const contentDiv = document.createElement('div');
-                                    contentDiv.className = 'flex-grow';
-                                    
-                                    const timestamp = new Date(request.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                                    contentDiv.innerHTML = `
-                                        <div class="flex items-center justify-between">
-                                            <span class="font-semibold text-gray-200">${request.userName}</span>
-                                            <span class="text-xs text-gray-400">${timestamp}</span>
-                                        </div>
-                                        <p class="text-gray-300 mt-2">${request.text}</p>
-                                    `;
-
-                                    const deleteButton = document.createElement('button');
-                                    deleteButton.className = 'p-1 rounded-lg text-white bg-red-600 hover:bg-red-700 transition duration-200 ml-4';
-                                    deleteButton.innerHTML = `
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 112 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" />
-                                        </svg>
-                                    `;
-                                    deleteButton.addEventListener('click', () => {
-                                        if (confirm('Are you sure you want to delete this feature request?')) {
-                                             ws.send(JSON.stringify({ type: 'deleteFeatureRequest', requestId: request.id }));
-                                        }
-                                    });
-
-                                    requestItem.appendChild(contentDiv);
-                                    requestItem.appendChild(deleteButton);
-                                    modFeatureRequestsList.appendChild(requestItem);
-                                });
-                            }
-                            break;
-                        case 'banned':
-                            isBanned = true;
-                            showMessageBox("You have been banned from the chat.");
-                            leave();
-                            break;
-                        case 'alert':
-                            showMessageBox(data.message);
-                            break;
-                    }
-                };
-
-                ws.onclose = () => {
-                    console.log('Disconnected from WebSocket server');
-                    if (isConnected) {
-                        showMessageBox("Disconnected from the chat server. Please refresh to reconnect.");
-                    }
-                    isConnected = false;
-                };
-
-                ws.onerror = (error) => {
-                    console.error('WebSocket error:', error);
-                    if (isConnected) {
-                        showMessageBox("An error occurred with the chat connection.");
-                    }
-                    isConnected = false;
-                };
+            ws.onclose = () => {
+                console.log("WebSocket connection closed.");
+                showMessageBox("Connection to the server was lost. Please log in again.");
+                resetAppState();
             };
 
-            const sendMessage = (text, container) => {
-                if (text.trim() === '') return;
-                if (!ws || ws.readyState !== WebSocket.OPEN || isBanned) {
-                    showMessageBox('You cannot send messages at this time.');
-                    return;
-                }
-                ws.send(JSON.stringify({ type: 'chatMessage', text: text }));
-                container.value = '';
+            ws.onerror = (error) => {
+                console.error("WebSocket error:", error);
+                // The onclose event will fire after this, so we don't need a separate UI for this.
             };
-            
-            // --- Event Listeners ---
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // Login buttons
             joinChatButton.addEventListener('click', () => {
-                const userName = usernameInput.value.trim();
-                if (!userName) {
-                    showMessageBox("Please enter a username to join.");
-                    return;
+                const username = usernameInput.value.trim();
+                if (username) {
+                    connectWebSocket();
+                } else {
+                    showMessageBox("Please enter a username.");
                 }
-                if (userName.toUpperCase() === 'ADMIN') {
-                    showMessageBox("The username 'ADMIN' is reserved for admin login.");
-                    return;
-                }
-                connectWebSocket(userName, '');
             });
 
             adminLoginButton.addEventListener('click', () => {
-                const password = adminPasswordInput.value;
-                if (!password) {
+                const password = adminPasswordInput.value.trim();
+                if (password) {
+                    usernameInput.value = 'Admin';
+                    connectWebSocket();
+                } else {
                     showMessageBox("Please enter the admin password.");
-                    return;
                 }
-                connectWebSocket('ADMIN', password);
+            });
+
+            // Chat buttons
+            sendButton.addEventListener('click', () => {
+                const messageText = messageInput.value.trim();
+                if (messageText && ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'chatMessage', text: messageText }));
+                    messageInput.value = '';
+                }
+            });
+
+            adminChatSendBtn.addEventListener('click', () => {
+                const messageText = adminChatInput.value.trim();
+                if (messageText && ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'adminMessage', text: messageText }));
+                    adminChatInput.value = '';
+                }
+            });
+
+            // Form submission for sending messages
+            document.getElementById('message-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                sendButton.click();
+            });
+
+            document.getElementById('admin-chat-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                adminChatSendBtn.click();
+            });
+
+            // Leave buttons
+            leaveButton.addEventListener('click', () => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.close();
+                }
+            });
+
+            modLeaveButton.addEventListener('click', () => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.close();
+                }
             });
             
-            sendButton.addEventListener('click', () => sendMessage(messageInput.value, messageInput));
-            messageInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    sendMessage(messageInput.value, messageInput);
-                }
-            });
-
-            adminSendButton.addEventListener('click', () => sendMessage(adminMessageInput.value, adminMessageInput));
-            adminMessageInput.addEventListener('keypress', (e) => {
-                 if (e.key === 'Enter') {
-                    e.preventDefault();
-                    sendMessage(adminMessageInput.value, adminMessageInput);
-                }
-            });
-
-            leaveButton.addEventListener('click', leave);
-            modLeaveButton.addEventListener('click', leave);
-            adminChatLeaveButton.addEventListener('click', leave);
-
-            adminPanelToggleBtn.addEventListener('click', () => togglePanel('mod'));
+            // Panel toggles
+            adminPanelToggleBtn.addEventListener('click', () => togglePanel('moderator'));
             adminChatToggleBtn.addEventListener('click', () => togglePanel('admin-chat'));
-            adminBackToModPanelBtn.addEventListener('click', () => togglePanel('mod'));
-
+            adminBackToModPanelBtn.addEventListener('click', () => togglePanel('moderator'));
+            
+            // Feature request buttons
             featureRequestButton.addEventListener('click', () => {
                 featureRequestModal.classList.remove('hidden');
             });
@@ -596,6 +591,33 @@
                 } else {
                     showMessageBox('Please enter a description for your feature request.');
                 }
+            });
+
+            // Moderator actions
+            document.addEventListener('click', (e) => {
+                if (e.target.classList.contains('ban-button')) {
+                    const userId = e.target.dataset.userId;
+                    if (ws && ws.readyState === WebSocket.OPEN && currentUser && currentUser.isAdmin) {
+                        ws.send(JSON.stringify({ type: 'banUser', userId }));
+                    }
+                }
+                if (e.target.classList.contains('unban-button')) {
+                    const userId = e.target.dataset.userId;
+                    if (ws && ws.readyState === WebSocket.OPEN && currentUser && currentUser.isAdmin) {
+                        ws.send(JSON.stringify({ type: 'unbanUser', userId }));
+                    }
+                }
+                if (e.target.classList.contains('delete-request-button')) {
+                    const requestId = e.target.dataset.requestId;
+                    if (ws && ws.readyState === WebSocket.OPEN && currentUser && currentUser.isAdmin) {
+                        ws.send(JSON.stringify({ type: 'deleteFeatureRequest', requestId }));
+                    }
+                }
+            });
+
+            // Message box close button
+            closeMessageBox.addEventListener('click', () => {
+                customMessageBox.classList.add('hidden');
             });
         });
     </script>
