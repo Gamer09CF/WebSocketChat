@@ -132,11 +132,13 @@
 
     <!-- Moderator Panel -->
     <div id="moderator-panel" class="panel-bg hidden w-full h-[90vh] max-w-4xl mx-auto p-6 rounded-xl shadow-2xl flex flex-col">
-        <!-- Header is consistent across Mod Panel and Admin Chat -->
+        <!-- Header for the entire moderator panel -->
         <div class="flex items-center justify-between mb-4">
-            <h1 class="text-2xl font-extrabold text-white">Moderator Panel</h1>
+            <h1 id="mod-panel-title" class="text-2xl font-extrabold text-white">Moderator Panel</h1>
             <div class="flex items-center space-x-2">
-                <!-- Button to toggle between Admin Chat and Mod Panel Content -->
+                <button id="clear-chat-button" class="px-3 py-1 text-white text-sm font-bold rounded-lg bg-red-600 hover:bg-red-700 transition duration-200">
+                    Clear Chat
+                </button>
                 <button id="admin-panel-toggle-btn-mod" class="px-3 py-1 text-white text-sm font-bold rounded-lg bg-blue-600 hover:bg-blue-700 transition duration-200">
                     Admin Chat
                 </button>
@@ -174,17 +176,6 @@
 
         <!-- Admin Chat Panel -->
         <div id="admin-chat-view" class="flex-grow flex-col hidden">
-            <div class="flex items-center justify-between mb-4">
-                <h1 class="text-2xl font-extrabold text-white">Admin Chat</h1>
-                <div class="flex space-x-2">
-                    <button id="clear-chat-button" class="px-4 py-2 text-white font-bold rounded-lg bg-red-600 hover:bg-red-700 transition duration-200">
-                        Clear Chat
-                    </button>
-                    <button id="admin-back-to-mod-panel-btn" class="px-4 py-2 text-white font-bold rounded-lg bg-gray-600 hover:bg-gray-700 transition duration-200">
-                        Back to Panel
-                    </button>
-                </div>
-            </div>
             <div id="admin-chat-container" class="panel-bg flex-grow overflow-y-auto p-4 rounded-xl border border-gray-600 mb-4">
                 <!-- Admin chat messages will be injected here -->
             </div>
@@ -217,6 +208,7 @@
         const adminLoginButton = document.getElementById('admin-login-button');
         const userChatPanel = document.getElementById('user-chat-panel');
         const moderatorPanel = document.getElementById('moderator-panel');
+        const modPanelTitle = document.getElementById('mod-panel-title');
         const modContentView = document.getElementById('mod-content-view');
         const adminChatView = document.getElementById('admin-chat-view');
         const chatContainer = document.getElementById('chat-container');
@@ -240,7 +232,6 @@
         const closeMessageBox = document.getElementById('close-message-box');
         const currentUserSpan = document.getElementById('current-user');
         const clearChatButton = document.getElementById('clear-chat-button');
-
         
         /**
          * Custom message box to replace alert().
@@ -340,7 +331,7 @@
             moderatorPanel.classList.add('hidden');
             modContentView.classList.add('hidden');
             adminChatView.classList.add('hidden');
-
+            
             switch (panel) {
                 case 'user':
                     userChatPanel.classList.remove('hidden');
@@ -349,11 +340,13 @@
                     moderatorPanel.classList.remove('hidden');
                     modContentView.classList.remove('hidden');
                     adminChatToggleBtnMod.textContent = 'Admin Chat';
+                    modPanelTitle.textContent = 'Moderator Panel';
                     break;
                 case 'admin-chat':
                     moderatorPanel.classList.remove('hidden');
                     adminChatView.classList.remove('hidden');
                     adminChatToggleBtnMod.textContent = 'Back to Panel';
+                    modPanelTitle.textContent = 'Admin Chat';
                     break;
             }
             currentPanel = panel;
