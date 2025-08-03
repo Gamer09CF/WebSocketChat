@@ -215,10 +215,22 @@
         /**
          * Custom message box to replace alert().
          * @param {string} message - The message to display.
+         * @param {Function} [onDismiss=null] - A callback function to run when the message box is dismissed.
          */
-        function showMessageBox(message) {
+        function showMessageBox(message, onDismiss = null) {
             messageText.textContent = message;
             customMessageBox.classList.remove('hidden');
+
+            const handleClose = () => {
+                customMessageBox.classList.add('hidden');
+                closeMessageBox.removeEventListener('click', handleClose);
+                if (onDismiss) {
+                    onDismiss();
+                }
+            };
+            // Ensure only one event listener is active to prevent multiple executions
+            closeMessageBox.removeEventListener('click', handleClose);
+            closeMessageBox.addEventListener('click', handleClose);
         }
 
         /**
@@ -327,6 +339,8 @@
             usersList.innerHTML = '';
             modConnectedUsersList.innerHTML = '';
             modBannedUsersList.innerHTML = '';
+            usernameInput.value = '';
+            adminPasswordInput.value = '';
 
             // Hide panels and show login
             userChatPanel.classList.add('hidden');
@@ -348,7 +362,7 @@
                 ws = new WebSocket(wsUrl);
             } catch (error) {
                 console.error("Failed to connect to WebSocket:", error);
-                showMessageBox("Failed to connect to the server. Please check your connection or try again later.");
+                showMessageBox("Failed to connect to the server. Please check your connection or try again later.", resetAppState);
                 return;
             }
 
@@ -399,16 +413,15 @@
                         showMessageBox(data.message);
                         break;
                     case 'banned':
-                        // Display the specific ban message from the server
                         nameModal.classList.add('hidden'); // Hide the login modal
-                        showMessageBox(data.message);
+                        showMessageBox(data.message, resetAppState);
                         specificCloseReasonReceived = true;
                         ws.close(); // Close the connection if banned
                         break;
                     case 'connectionDenied':
                         nameModal.classList.add('hidden'); // Hide the login modal
+                        showMessageBox(data.reason, resetAppState);
                         specificCloseReasonReceived = true;
-                        showMessageBox(data.reason);
                         ws.close();
                         break;
                     default:
@@ -420,10 +433,9 @@
             ws.onclose = () => {
                 console.log("WebSocket connection closed.");
                 if (!specificCloseReasonReceived) {
-                    showMessageBox("Connection to the server was lost. Please log in again.");
+                    showMessageBox("Connection to the server was lost. Please log in again.", resetAppState);
                 }
                 specificCloseReasonReceived = false;
-                resetAppState();
             };
 
             ws.onerror = (error) => {
@@ -438,7 +450,7 @@
             joinChatButton.addEventListener('click', () => {
                 const username = usernameInput.value.trim();
                 if (username.toLowerCase() === 'admin') {
-                    showMessageBox("The username Admin is reserved.");
+                    showMessageBox("The username 'admin' is reserved. Please choose a different name.");
                     return;
                 }
                 if (username) {
@@ -527,10 +539,10 @@
                 }
             });
 
-            // Message box close button
-            closeMessageBox.addEventListener('click', () => {
-                customMessageBox.classList.add('hidden');
-            });
+            // This listener is now handled by the showMessageBox function
+            // closeMessageBox.addEventListener('click', () => {
+            //     customMessageBox.classList.add('hidden');
+            // });
         });
     </script>
 </body>
