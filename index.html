@@ -266,9 +266,16 @@
             connectedUsers.forEach(user => {
                 const userItem = document.createElement('div');
                 userItem.className = 'flex items-center justify-between p-2 rounded-md hover:bg-gray-700 transition duration-150';
+                
+                let buttonHtml = `<button class="ban-button px-2 py-1 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-700 transition duration-200" data-user-id="${user.id}">Ban</button>`;
+                // Check if the user is the current admin
+                if (user.id === currentUser.id) {
+                    buttonHtml = `<button class="px-2 py-1 text-xs font-bold rounded-lg bg-gray-600 text-gray-400 cursor-not-allowed" disabled>Cannot Ban</button>`;
+                }
+
                 userItem.innerHTML = `
                     <span class="text-sm font-medium text-gray-300">${user.name}</span>
-                    <button class="ban-button px-2 py-1 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-700 transition duration-200" data-user-id="${user.id}">Ban</button>
+                    ${buttonHtml}
                 `;
                 modConnectedUsersList.appendChild(userItem);
             });
