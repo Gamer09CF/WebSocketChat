@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FireChat</title>
+    <title>WebSocketChat</title>
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -60,7 +60,7 @@
     <!-- Login Modal -->
     <div id="name-modal" class="modal-overlay">
         <div class="panel-bg rounded-xl shadow-2xl p-6 w-full max-w-sm relative">
-            <h1 class="text-3xl font-extrabold text-center mb-4 text-white">FireChat</h1>
+            <h1 class="text-3xl font-extrabold text-center mb-4 text-white">WebSocketChat</h1>
             
             <p class="text-gray-300 text-center mb-4">Please enter your username to join.</p>
             <input type="text" id="username-input" placeholder="Choose a username..." class="w-full p-3 rounded-lg border border-gray-600 bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 text-white mb-2" autocomplete="off">
@@ -115,7 +115,7 @@
 
         <!-- Right Column: Chat Display and Input -->
         <div class="col-span-1 md:col-span-2 flex flex-col">
-            <h1 class="text-2xl font-extrabold mb-4">FireChat</h1>
+            <h1 class="text-2xl font-extrabold mb-4">WebSocketChat</h1>
             <!-- Chat messages container -->
             <div id="chat-container" class="panel-bg flex-grow overflow-y-auto p-4 rounded-xl border border-gray-600 mb-4">
                 <!-- Messages will be injected here -->
@@ -448,7 +448,7 @@
             joinChatButton.addEventListener('click', () => {
                 const username = usernameInput.value.trim();
                 if (username.toLowerCase() === 'admin') {
-                    showMessageBox("The username 'admin' is reserved. Please choose a different name.");
+                    showMessageBox("The username 'Admin' is reserved. Please choose a different name.");
                     return;
                 }
                 if (username) {
@@ -462,7 +462,9 @@
             adminLoginButton.addEventListener('click', () => {
                 const password = adminPasswordInput.value.trim();
                 if (password) {
-                    usernameInput.value = 'Admin';
+                    // Send an empty username. The server will handle setting the 'Admin' username
+                    // upon successful password verification.
+                    usernameInput.value = ''; 
                     nameModal.classList.add('hidden'); // Hide the modal immediately
                     connectWebSocket();
                 } else {
