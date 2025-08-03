@@ -8,7 +8,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const adminPassword = 'admin'; // Plaintext password
+const adminPassword = 'toorroot123';
 const connectedUsers = new Map();
 const bannedUsers = new Map(); // Store banned user IDs and names
 let messages = [];
