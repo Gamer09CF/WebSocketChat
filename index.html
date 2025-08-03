@@ -383,7 +383,6 @@
                 switch (data.type) {
                     case 'joinSuccess':
                         currentUser = data.user;
-                        nameModal.classList.add('hidden');
                         if (currentUser.isAdmin) {
                             togglePanel('moderator');
                             adminPanelToggleBtn.classList.remove('hidden');
@@ -413,13 +412,12 @@
                         showMessageBox(data.message);
                         break;
                     case 'banned':
-                        nameModal.classList.add('hidden'); // Hide the login modal
+                        // Display the specific ban message from the server
                         showMessageBox(data.message, resetAppState);
                         specificCloseReasonReceived = true;
                         ws.close(); // Close the connection if banned
                         break;
                     case 'connectionDenied':
-                        nameModal.classList.add('hidden'); // Hide the login modal
                         showMessageBox(data.reason, resetAppState);
                         specificCloseReasonReceived = true;
                         ws.close();
@@ -454,6 +452,7 @@
                     return;
                 }
                 if (username) {
+                    nameModal.classList.add('hidden'); // Hide the modal immediately
                     connectWebSocket();
                 } else {
                     showMessageBox("Please enter a username.");
@@ -464,6 +463,7 @@
                 const password = adminPasswordInput.value.trim();
                 if (password) {
                     usernameInput.value = 'Admin';
+                    nameModal.classList.add('hidden'); // Hide the modal immediately
                     connectWebSocket();
                 } else {
                     showMessageBox("Please enter the admin password.");
