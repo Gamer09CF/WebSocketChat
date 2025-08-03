@@ -400,11 +400,13 @@
                         break;
                     case 'banned':
                         // Display the specific ban message from the server
+                        nameModal.classList.add('hidden'); // Hide the login modal
                         showMessageBox(data.message);
                         specificCloseReasonReceived = true;
                         ws.close(); // Close the connection if banned
                         break;
                     case 'connectionDenied':
+                        nameModal.classList.add('hidden'); // Hide the login modal
                         specificCloseReasonReceived = true;
                         showMessageBox(data.reason);
                         ws.close();
