@@ -72,11 +72,11 @@ wss.on('connection', ws => {
                     return;
                 }
 
-                // Check for banned users
+                // Check for banned users - preventing login
                 if (Array.from(bannedUsers.values()).some(u => u.name === data.userName)) {
                     ws.send(JSON.stringify({
-                        type: 'banned',
-                        message: `You have been banned from this chat.`
+                        type: 'connectionDenied',
+                        reason: `This username is banned.`
                     }));
                     return;
                 }
@@ -132,7 +132,7 @@ wss.on('connection', ws => {
                         if (clientToBan) {
                             bannedUsers.set(userToBan.id, userToBan);
                             connectedUsers.delete(userToBan.id);
-                            clientToBan.send(JSON.stringify({ type: 'banned', message: 'You have been banned by an admin.' }));
+                            clientToBan.send(JSON.stringify({ type: 'banned', message: 'You have been banned by admin.' }));
                             clientToBan.close(); // Immediately close the connection
                             broadcast({ type: 'alert', message: `${userToBan.name} has been banned.` });
                             updateUserLists();
