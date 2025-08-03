@@ -399,7 +399,9 @@
                         showMessageBox(data.message);
                         break;
                     case 'banned':
-                        showMessageBox(data.message || 'You have been banned from this chat.');
+                        // Display the specific ban message from the server
+                        showMessageBox(data.message);
+                        specificCloseReasonReceived = true;
                         ws.close(); // Close the connection if banned
                         break;
                     case 'connectionDenied':
