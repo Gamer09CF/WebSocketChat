@@ -120,6 +120,12 @@ wss.on('connection', ws => {
 
             case 'banUser':
                 if (ws.user && ws.user.isAdmin) {
+                    // Prevent an admin from banning themselves
+                    if (ws.user.id === data.userId) {
+                        ws.send(JSON.stringify({ type: 'alert', message: 'You cannot ban yourself.' }));
+                        return;
+                    }
+
                     const userToBan = connectedUsers.get(data.userId);
                     if (userToBan) {
                         const clientToBan = Array.from(wss.clients).find(client => client.user && client.user.id === userToBan.id);
