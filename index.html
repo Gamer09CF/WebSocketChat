@@ -462,9 +462,7 @@
             adminLoginButton.addEventListener('click', () => {
                 const password = adminPasswordInput.value.trim();
                 if (password) {
-                    // Send an empty username. The server will handle setting the 'Admin' username
-                    // upon successful password verification.
-                    usernameInput.value = ''; 
+                    usernameInput.value = 'Admin'; // Set the username to 'Admin'
                     nameModal.classList.add('hidden'); // Hide the modal immediately
                     connectWebSocket();
                 } else {
